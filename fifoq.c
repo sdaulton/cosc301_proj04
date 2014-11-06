@@ -4,7 +4,7 @@
 
 // All modified from Sam's pid list functions from Proj 02.
 
-int fifo_append(ucontext_t cthread, int ctid, struct node **head) {
+int fifo_append(ucontext_t cthread, int ctid, struct node **current, int tcount) {
     // Appends a new node containing the thread's context 
     // and that thread's identifying number.
     struct node *temp = malloc(sizeof(struct node));

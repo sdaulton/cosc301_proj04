@@ -7,8 +7,9 @@
 struct node {
 	ucontext_t thread;
 	int tid;
-	struct node *next;
 };
+
+void node_init(struct node* list);
 
 int fifo_append(ucontext_t cthread, int tid, struct node **head);
 

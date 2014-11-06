@@ -13,22 +13,42 @@
 
 #define STACKSIZE 8192
 
- struct node* ready = NULL;
- int tid = 0;
- ucontext_t main; 
+static struct node* ready = NULL;
+static int tid = 0;
+bool inMain = true;
+static ucontext_t main;
+main = get_context(main); 
 
 /* ***************************** 
      stage 1 library functions
    ***************************** */
 
+
+static void main_scheduler() {
+  // While ready queue has anything in it, runs through ready queue every time
+  // a yield is called. 
+  while (1) {
+    if (ready = NULL) {
+      break;
+    }
+  }
+} 
+
+
 void ta_libinit(void) {
+    
     return;
 }
 
 void ta_create(void (*func)(void *), void *arg) {
+  // Create node, make context, set context.
+  // Add node to ready q, link it back to main.
+  // Give it thread ID & function.
+
     ucontext_t thread = NULL;
     unsigned char *stack = (unsigned char *)malloc(STACKSIZE);
 
+    /* Set up thread*/
     get_context(&thread);
     thread.uc_stack.ss_sp = stack;
     thread.uc_stack.ss_size = STACKSIZE;
@@ -41,10 +61,16 @@ void ta_create(void (*func)(void *), void *arg) {
 }
 
 void ta_yield(void) {
+  // Check if you're in main, if you are switch to next ready thread.
+  // If not, go to main and then recall.
+  // Consider case where yield is called from a thread, consider where
+  // yield is called from the calling program. 
+
     return;
 }
 
 int ta_waitall(void) {
+  // Only called from calling program - wait for all threads to finish.
     return -1;
 }
 
