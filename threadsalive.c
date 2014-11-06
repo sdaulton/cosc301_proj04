@@ -8,8 +8,14 @@
 #include <assert.h>
 #include <strings.h>
 #include <string.h>
-
 #include "threadsalive.h"
+#include "fifoq.c"
+
+#define STACKSIZE 8192
+
+ struct node* ready = NULL;
+ int tid = 0;
+ ucontext_t main; 
 
 /* ***************************** 
      stage 1 library functions
@@ -20,6 +26,17 @@ void ta_libinit(void) {
 }
 
 void ta_create(void (*func)(void *), void *arg) {
+    ucontext_t thread = NULL;
+    unsigned char *stack = (unsigned char *)malloc(STACKSIZE);
+
+    get_context(&thread);
+    thread.uc_stack.ss_sp = stack;
+    thread.uc_stack.ss_size = STACKSIZE;
+    thread.uc_link = &main;
+
+    fifo_append(thread, tid, ready);
+    tid++;
+
     return;
 }
 
