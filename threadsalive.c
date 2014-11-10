@@ -14,8 +14,9 @@
 #define STACKSIZE 8192
 
 static struct node* ready = NULL;
-static int tid = 0;
-bool inMain = true;
+int tid = 0;
+int currentTID = 0;
+static int inMain = 0;
 static ucontext_t main;
 main = get_context(main); 
 
@@ -23,20 +24,11 @@ main = get_context(main);
      stage 1 library functions
    ***************************** */
 
-
-static void main_scheduler() {
-  // While ready queue has anything in it, runs through ready queue every time
-  // a yield is called. 
-  while (1) {
-    if (ready = NULL) {
-      break;
-    }
-  }
-} 
-
-
 void ta_libinit(void) {
-    
+    struct node* mainNode;
+    mainNode.thread = main;
+    mainNode.tid = 0;
+    mainNode.active = 1;
     return;
 }
 
@@ -54,23 +46,50 @@ void ta_create(void (*func)(void *), void *arg) {
     thread.uc_stack.ss_size = STACKSIZE;
     thread.uc_link = &main;
 
+    // Makes the context - switch into it using switch_context()
+    make_context(thread, func, arg);
     fifo_append(thread, tid, ready);
-    tid++;
 
+    tid++;
     return;
 }
 
-void ta_yield(void) {
-  // Check if you're in main, if you are switch to next ready thread.
-  // If not, go to main and then recall.
-  // Consider case where yield is called from a thread, consider where
-  // yield is called from the calling program. 
+void ta_yield(void) { 
+  // If you are not in main, this means you are running the current head
+  // of the ready queue so swap to main.
+  if (!inMain) {
+    swap_context(ready.thread, &main);
+    fifo_append()
+  }
 
-    return;
+  // If you are in main, run the head of the ready queue.
+  else {
+    if (ready == NULL) {
+      return;
+    }
+
+    inMain = 0;
+    ready = ready -> next;
+    swap_context(&main, &(ready.thread));
+    inMain = 1;
+
+
+    // WHEN TO FREE THREADS? Figure out how to determine when thread is
+    // done running, and then free the stack and remove the node.
+  }
+
+
+  return;
 }
 
 int ta_waitall(void) {
+  // Idea: Run all threads via yield until the queue is empty.
   // Only called from calling program - wait for all threads to finish.
+    while (ready != NULL) {
+      ta_yield(ready);
+      ready = ready -> next;
+    }
+
     return -1;
 }
 

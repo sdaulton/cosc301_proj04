@@ -57,3 +57,17 @@ struct node* fifo_pop(struct node **list) {
 		return NULL;
 	}
 }
+
+// Code by Bria - pushes the already existing node to the back of
+// the list (to the end of the queue).
+void fifo_push(struct node **list, struct node* thread) {
+    thread -> next = NULL;
+    if (*list == NULL) {
+        list = &thread;
+        return;
+    }
+    while (*list -> next != NULL) {
+        list = list -> next;
+    }
+    list -> next = thread;
+}
