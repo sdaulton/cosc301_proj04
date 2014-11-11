@@ -1,29 +1,28 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ucontext.h>
 #include "fifoq.h"
 
-// All modified from Sam's pid list functions from Proj 02.
+// All done by Bria.
 
-int fifo_append(ucontext_t cthread, int ctid, struct node **current, int tcount) {
-    // Appends a new node containing the thread's context 
-    // and that thread's identifying number.
-    struct node *temp = malloc(sizeof(struct node));
-    temp -> thread = cthread;
-    temp -> tid = ctid;
-    temp -> next = NULL;
-    if (*head != NULL) {
-        struct node *list = *head;
-        while (list -> next != NULL) {
-            list = list -> next;
-        }
-        list -> next = temp;
+/*
+int fifo_append(ucontext_t thread, ucontext_t* ready) {
+    // Links the next thread into the ready queue.
+    // Assumes that the new thread is linked to NULL already.
+    if (ready == NULL) {
+        ready = &thread;
     }
     else {
-        *head = temp;
+        ucontext_t* temp = ready;
+        while (temp != NULL) {
+            temp = temp -> uc_link;
+        }
+        temp.uc_link = &thread;
     }
-    return 0;
 }
+*/
 
+/*
 void fifo_print(struct node **head) {
     // takes a pointer to a ponter to the head of a linked list of thread nodes
     // and prints the list of threads based on their thread id #
@@ -44,13 +43,14 @@ void fifo_clear(struct node *list) {
         free(tmp);
     }
 }
+*/
 
 // Code by Bria - pops the head of the list off and returns 
-// it so that the thread it contains can be run. 
-struct node* fifo_pop(struct node **list) {
+// it so that it can be run. 
+ucontext_t* fifo_pop(ucontext_t **list) {
 	if (*list != NULL) {
-		struct node *temp = *list;
-		*list = (*list) -> next;
+		ucontext_t* temp = *list;
+		*list = (*list) -> uc_link;
 		return temp;
 	}
 	else {
@@ -60,14 +60,14 @@ struct node* fifo_pop(struct node **list) {
 
 // Code by Bria - pushes the already existing node to the back of
 // the list (to the end of the queue).
-void fifo_push(struct node **list, struct node* thread) {
-    thread -> next = NULL;
-    if (*list == NULL) {
+void fifo_push(ucontext_t *list, ucontext_t thread) {
+    thread.uc_link = NULL;
+    if (list == NULL) {
         list = &thread;
         return;
     }
-    while (*list -> next != NULL) {
-        list = list -> next;
+    while (list -> uc_link != NULL) {
+        list = list -> uc_link;
     }
-    list -> next = thread;
+    list -> uc_link = &thread;
 }
