@@ -1,7 +1,7 @@
 /*
  * 
  */
-
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -28,7 +28,10 @@ void ta_libinit(void) {
     ucontext_t* readyContext = malloc(sizeof(ucontext_t));
     ready = readyContext;
     printf("After malloc plz plz\n");
-    getcontext(ready);
+    if (getcontext(ready) == -1) {
+        fprintf(stderr, "getcontext(ready failed).  Error: %s\n", strerror(errno));
+        exit(1);
+    }
     ready -> uc_link = NULL;
     return;
 }
@@ -36,17 +39,19 @@ void ta_libinit(void) {
 void ta_create(void (*func)(void *), void *arg) {
   // Create node, make context, set context, add to queue.
 
-    ucontext_t thread;
+    //ucontext_t thread;
+    //I ADDED THIS LINE
+    ucontext_t *thread = malloc(sizeof(ucontext_t));
     unsigned char *stack = (unsigned char *)malloc(STACKSIZE);
 
     /* Set up thread*/
-    getcontext(&thread);
-    thread.uc_stack.ss_sp = stack;
-    thread.uc_stack.ss_size = STACKSIZE;
-    thread.uc_link = NULL;
+    getcontext(thread);
+    (thread->uc_stack).ss_sp = stack;
+    (thread->uc_stack).ss_size = STACKSIZE;
+    thread->uc_link = NULL;
 
     // Makes the context - switch into it using switch_context()
-    makecontext(&thread, (void (*)(void))func, arg);
+    makecontext(thread, func, 1, arg);
     fifo_push(ready, thread);
     return;
 }
@@ -54,8 +59,8 @@ void ta_create(void (*func)(void *), void *arg) {
 void ta_yield(void) { 
   ucontext_t *current = NULL;
   current = fifo_pop(&ready);
-  fifo_push(ready, *current);
-  swapcontext(current, current -> uc_link);
+
+  swapcontext(ready, current);
 
   if (current != ready){
     // The only way for us to get here is if the thread returned as opposed to

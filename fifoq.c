@@ -60,14 +60,14 @@ ucontext_t* fifo_pop(ucontext_t **list) {
 
 // Code by Bria - pushes the already existing node to the back of
 // the list (to the end of the queue).
-void fifo_push(ucontext_t *list, ucontext_t thread) {
-    thread.uc_link = NULL;
+void fifo_push(ucontext_t *list, ucontext_t *thread) {
+    thread->uc_link = NULL;
     if (list == NULL) {
-        list = &thread;
+        list = thread;
         return;
     }
     while (list -> uc_link != NULL) {
         list = list -> uc_link;
     }
-    list -> uc_link = &thread;
+    list -> uc_link = thread;
 }
