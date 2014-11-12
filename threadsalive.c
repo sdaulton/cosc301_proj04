@@ -14,14 +14,21 @@
 
 #define STACKSIZE 8192
 
-ucontext_t* ready = NULL;
+static ucontext_t* ready; // Because the ucontext structure has the link that basically
+                          // acts like a queue on its own, Stratton suggested using it
+                          // as the linked list instead of implementing our own.
+
 
 /* ***************************** 
      stage 1 library functions
    ***************************** */
 
 void ta_libinit(void) {
-    get_context(ready);
+    printf("In init 1\n");
+    ucontext_t* readyContext = malloc(sizeof(ucontext_t));
+    ready = readyContext;
+    printf("After malloc plz plz\n");
+    getcontext(ready);
     ready -> uc_link = NULL;
     return;
 }
@@ -33,15 +40,14 @@ void ta_create(void (*func)(void *), void *arg) {
     unsigned char *stack = (unsigned char *)malloc(STACKSIZE);
 
     /* Set up thread*/
-    get_context(&thread);
+    getcontext(&thread);
     thread.uc_stack.ss_sp = stack;
     thread.uc_stack.ss_size = STACKSIZE;
     thread.uc_link = NULL;
 
     // Makes the context - switch into it using switch_context()
-    make_context(thread, func, arg);
+    makecontext(&thread, (void (*)(void))func, arg);
     fifo_push(ready, thread);
-
     return;
 }
 
@@ -49,7 +55,7 @@ void ta_yield(void) {
   ucontext_t *current = NULL;
   current = fifo_pop(&ready);
   fifo_push(ready, *current);
-  swap_context(current, current -> uc_link);
+  swapcontext(current, current -> uc_link);
 
   if (current != ready){
     // The only way for us to get here is if the thread returned as opposed to

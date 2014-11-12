@@ -26,6 +26,8 @@ int main(int argc, char **argv)
     printf("Tester for stage 1.  Uses all four stage 1 library functions.\n");
 
     ta_libinit();
+    printf("Made it past init. \n");
+
     int i = 0;
     for (i = 0; i < 2; i++) {
         ta_create(thread1, (void *)&i);
