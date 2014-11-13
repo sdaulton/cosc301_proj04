@@ -14,8 +14,8 @@
 #define STACKSIZE 128000
 
 static struct node* ready = NULL;
-static ucontext_t main;\
-static int tid = 0; 
+static ucontext_t main;
+static int tid = 1; 
 
 /* ***************************** 
      stage 1 library functions
@@ -29,7 +29,6 @@ void ta_libinit(void) {
   ready -> isMain = 0; // Need to check if main so you know when you're actually done. Queue should just have main when you're done.
   ready -> next = NULL; 
   */
-  printf("Make it through init\n");
   return;
 }
 
@@ -50,17 +49,14 @@ void ta_create(void (*func)(void *), void *arg) {
 
     fifo_append(thread, &ready, tid);
     tid++;
-    printf("end create\n");
     return;
 }
 
 void ta_yield(void) {
   // Switches to the next thread on the ready queue, pushing the current
   // thread to the back.
-  printf("In yield yo\n");
   struct node* current = fifo_pop(&ready);
   fifo_push(&ready, current);
-  printf("does yield work\n");
   swapcontext(&(current -> thread), &(ready -> thread));
   return;
 }
@@ -70,9 +66,7 @@ int ta_waitall(void) {
   while (ready -> next != NULL) {
     struct node *next = fifo_pop(&ready);
     printf("next: %p, ready: %p\n", next, ready);
-    printf("next t: %d, ready t: %d\n", next->isMain, ready->isMain);
     printf("next tid: %d, ready tid: %d\n", next->tid, ready->tid);
-    printf("next stack: %d, ready stack: %d\n", next->thread.uc_stack.ss_size, ready->thread.uc_stack.ss_size);
     swapcontext(&main, &next -> thread);
     printf("Swapped context\n");
 
@@ -81,7 +75,7 @@ int ta_waitall(void) {
     //free((&next -> thread.uc_stack));
     //free(next); 
   }
-  return 0;
+  return -1;
 }
 
 

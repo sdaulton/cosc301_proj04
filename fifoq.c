@@ -8,7 +8,7 @@ int fifo_append(ucontext_t cthread, struct node **head, int tid) {
     struct node *temp = malloc(sizeof(struct node));
     temp -> thread = cthread;
     temp -> isMain = 1;
-    temp -> tid = tid;
+    temp -> tid = tid; 
     temp -> next = NULL;
     if (*head != NULL) {
         struct node *list = *head;
