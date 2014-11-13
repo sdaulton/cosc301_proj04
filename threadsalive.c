@@ -1,11 +1,11 @@
 /*
  * 
  */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <assert.h>
+#include <ucontext.h>
 #include <strings.h>
 #include <string.h>
 #include "threadsalive.h"
@@ -13,65 +13,79 @@
 
 #define STACKSIZE 8192
 
-static struct node* ready = NULL;
-static int tid = 0;
-bool inMain = true;
-static ucontext_t main;
-main = get_context(main); 
+static struct node* ready;
+static ucontext_t main; 
 
 /* ***************************** 
      stage 1 library functions
    ***************************** */
 
-
-static void main_scheduler() {
-  // While ready queue has anything in it, runs through ready queue every time
-  // a yield is called. 
-  while (1) {
-    if (ready = NULL) {
-      break;
-    }
-  }
-} 
-
-
 void ta_libinit(void) {
-    
-    return;
+  ready = malloc(sizeof(struct node));
+  ready -> thread = main;
+  ready -> isMain = 0; // Need to check if main so you know when you're actually done. Queue should just have main when you're done.
+  ready -> next = NULL; 
+  printf("Make it through init\n");
+  return;
 }
 
 void ta_create(void (*func)(void *), void *arg) {
   // Create node, make context, set context.
   // Add node to ready q, link it back to main.
-  // Give it thread ID & function.
 
-    ucontext_t thread = NULL;
+    printf("Create\n");
+    ucontext_t thread; // fix ptrs
+    printf("Create 2\n");
     unsigned char *stack = (unsigned char *)malloc(STACKSIZE);
+    assert(stack);
+    printf("end create 2\n");
 
     /* Set up thread*/
-    get_context(&thread);
+    getcontext(&thread);
+    printf("end create 3\n");
     thread.uc_stack.ss_sp = stack;
     thread.uc_stack.ss_size = STACKSIZE;
     thread.uc_link = &main;
-
-    fifo_append(thread, tid, ready);
-    tid++;
-
+    printf("end create 4\n");
+    makecontext(&thread, (void (*)(void))func, 1, arg);
+    printf("end create 5\n");
+    fifo_append(thread, &ready);
+    printf("ismain: %d\n", ready->isMain);
+    printf("end create\n");
     return;
 }
 
 void ta_yield(void) {
-  // Check if you're in main, if you are switch to next ready thread.
-  // If not, go to main and then recall.
-  // Consider case where yield is called from a thread, consider where
-  // yield is called from the calling program. 
-
-    return;
+  // Switches to the next thread on the ready queue, pushing the current
+  // thread to the back.
+  printf("In yield yo\n");
+  struct node* current = fifo_pop(&ready);
+  fifo_push(current, ready);
+  printf("does yield work\n");
+  swapcontext(&(current -> thread), &(ready -> thread));
+  return;
 }
 
 int ta_waitall(void) {
   // Only called from calling program - wait for all threads to finish.
-    return -1;
+  printf("In wait all\n");
+  while (ready -> next != NULL) {
+    printf("Beginning of loop\n");
+    struct node *current = fifo_pop(&ready);
+    printf("current isMain %d\n", current->isMain);
+    printf("current: %p, ready: %p\n", current, ready);
+    printf("current t: %d, ready t: %d\n", current->isMain, ready->isMain);
+    printf("current stack: %d, ready stack: %d\n", current->thread.uc_stack.ss_size, ready->thread.uc_stack.ss_size);
+    printf("Current is created\n");
+    swapcontext(&current->thread, &ready -> thread);
+    printf("Swapped context");
+
+    // Because we are running this from the main thread, when we reach this point
+    // we know that a function has returned so we can clear it.
+    free((&current -> thread.uc_stack));
+    free(current); 
+  }
+  return 0;
 }
 
 
