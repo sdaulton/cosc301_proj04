@@ -11,20 +11,24 @@
 #include "threadsalive.h"
 #include "fifoq.c"
 
-#define STACKSIZE 8192
+#define STACKSIZE 128000
 
-static struct node* ready;
-static ucontext_t main; 
+static struct node* ready = NULL;
+static ucontext_t main;\
+static int tid = 0; 
 
 /* ***************************** 
      stage 1 library functions
    ***************************** */
 
 void ta_libinit(void) {
+  
+  /*
   ready = malloc(sizeof(struct node));
   ready -> thread = main;
   ready -> isMain = 0; // Need to check if main so you know when you're actually done. Queue should just have main when you're done.
   ready -> next = NULL; 
+  */
   printf("Make it through init\n");
   return;
 }
@@ -33,24 +37,19 @@ void ta_create(void (*func)(void *), void *arg) {
   // Create node, make context, set context.
   // Add node to ready q, link it back to main.
 
-    printf("Create\n");
     ucontext_t thread; // fix ptrs
-    printf("Create 2\n");
     unsigned char *stack = (unsigned char *)malloc(STACKSIZE);
     assert(stack);
-    printf("end create 2\n");
 
     /* Set up thread*/
     getcontext(&thread);
-    printf("end create 3\n");
     thread.uc_stack.ss_sp = stack;
     thread.uc_stack.ss_size = STACKSIZE;
     thread.uc_link = &main;
-    printf("end create 4\n");
     makecontext(&thread, (void (*)(void))func, 1, arg);
-    printf("end create 5\n");
-    fifo_append(thread, &ready);
-    printf("ismain: %d\n", ready->isMain);
+
+    fifo_append(thread, &ready, tid);
+    tid++;
     printf("end create\n");
     return;
 }
@@ -60,7 +59,7 @@ void ta_yield(void) {
   // thread to the back.
   printf("In yield yo\n");
   struct node* current = fifo_pop(&ready);
-  fifo_push(current, ready);
+  fifo_push(&ready, current);
   printf("does yield work\n");
   swapcontext(&(current -> thread), &(ready -> thread));
   return;
@@ -68,22 +67,19 @@ void ta_yield(void) {
 
 int ta_waitall(void) {
   // Only called from calling program - wait for all threads to finish.
-  printf("In wait all\n");
   while (ready -> next != NULL) {
-    printf("Beginning of loop\n");
-    struct node *current = fifo_pop(&ready);
-    printf("current isMain %d\n", current->isMain);
-    printf("current: %p, ready: %p\n", current, ready);
-    printf("current t: %d, ready t: %d\n", current->isMain, ready->isMain);
-    printf("current stack: %d, ready stack: %d\n", current->thread.uc_stack.ss_size, ready->thread.uc_stack.ss_size);
-    printf("Current is created\n");
-    swapcontext(&current->thread, &ready -> thread);
-    printf("Swapped context");
+    struct node *next = fifo_pop(&ready);
+    printf("next: %p, ready: %p\n", next, ready);
+    printf("next t: %d, ready t: %d\n", next->isMain, ready->isMain);
+    printf("next tid: %d, ready tid: %d\n", next->tid, ready->tid);
+    printf("next stack: %d, ready stack: %d\n", next->thread.uc_stack.ss_size, ready->thread.uc_stack.ss_size);
+    swapcontext(&main, &next -> thread);
+    printf("Swapped context\n");
 
     // Because we are running this from the main thread, when we reach this point
     // we know that a function has returned so we can clear it.
-    free((&current -> thread.uc_stack));
-    free(current); 
+    //free((&next -> thread.uc_stack));
+    //free(next); 
   }
   return 0;
 }

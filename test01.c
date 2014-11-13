@@ -30,12 +30,9 @@ int main(int argc, char **argv)
     for (i = 0; i < 2; i++) {
         ta_create(thread1, (void *)&i);
         ta_create(thread2, (void *)&i);
-        printf("All threads created\n");
     }
 
-    printf("Let's wait for them\n");
     int rv = ta_waitall();
-    printf("Threads were waited for\n");
     if (rv) {
         fprintf(stderr, "%d threads were not ready to run when ta_waitall() was called\n", -rv);
     }
