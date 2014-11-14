@@ -5,7 +5,7 @@
 
 
 struct node {
-	ucontext_t thread;
+	ucontext_t* thread;
 	int isMain; // main = 0, not main = 1.
 	int tid;
 	struct node* next;
@@ -13,7 +13,7 @@ struct node {
 
 void node_init(struct node* ready);
 
-int fifo_append(ucontext_t cthread, struct node **head, int tid);
+int fifo_append(ucontext_t* cthread, struct node **head, int tid);
 
 void fifo_clear(struct node *ready);
 

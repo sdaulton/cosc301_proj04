@@ -2,10 +2,13 @@
 #include <stdlib.h>
 #include "fifoq.h"
 
-int fifo_append(ucontext_t cthread, struct node **head, int tid) {
+int fifo_append(ucontext_t* cthread, struct node **head, int tid) {
     // Appends a new node containing the thread's context 
     // and that thread's identifying number.
     struct node *temp = malloc(sizeof(struct node));
+    if (temp == NULL) {
+        printf("Error: Malloc failed. Write better error message.\n");
+    }
     temp -> thread = cthread;
     temp -> isMain = 1;
     temp -> tid = tid; 

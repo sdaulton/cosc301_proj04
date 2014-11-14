@@ -36,17 +36,19 @@ void ta_create(void (*func)(void *), void *arg) {
   // Create node, make context, set context.
   // Add node to ready q, link it back to main.
 
-    ucontext_t thread; // fix ptrs
+    ucontext_t* thread = malloc(sizeof(ucontext_t));
     unsigned char *stack = (unsigned char *)malloc(STACKSIZE);
     assert(stack);
 
-    /* Set up thread*/
-    getcontext(&thread);
-    thread.uc_stack.ss_sp = stack;
-    thread.uc_stack.ss_size = STACKSIZE;
-    thread.uc_link = &main;
-    makecontext(&thread, (void (*)(void))func, 1, arg);
+    int *i = (int *)arg;
+    printf("create arg: %d\n", *i);
 
+    /* Set up thread*/
+    getcontext(thread);
+    thread -> uc_stack.ss_sp = stack;
+    thread -> uc_stack.ss_size = STACKSIZE;
+    thread -> uc_link = &main;
+    makecontext(thread, (void (*)(void))func, 1, arg);
     fifo_append(thread, &ready, tid);
     tid++;
     return;
@@ -55,9 +57,11 @@ void ta_create(void (*func)(void *), void *arg) {
 void ta_yield(void) {
   // Switches to the next thread on the ready queue, pushing the current
   // thread to the back.
-  struct node* current = fifo_pop(&ready);
-  fifo_push(&ready, current);
-  swapcontext(&(current -> thread), &(ready -> thread));
+  struct node* next = fifo_pop(&ready);
+  printf("yield next tid: %d, ready tid: %d\n", next->tid, ready->tid);
+  printf("next: %p, ready: %p\n", next, ready);
+  fifo_push(&ready, next);
+  swapcontext(*(&next -> thread), *(&ready -> thread));
   return;
 }
 
@@ -65,15 +69,22 @@ int ta_waitall(void) {
   // Only called from calling program - wait for all threads to finish.
   while (ready -> next != NULL) {
     struct node *next = fifo_pop(&ready);
-    printf("next: %p, ready: %p\n", next, ready);
-    printf("next tid: %d, ready tid: %d\n", next->tid, ready->tid);
-    swapcontext(&main, &next -> thread);
-    printf("Swapped context\n");
-
-    // Because we are running this from the main thread, when we reach this point
-    // we know that a function has returned so we can clear it.
-    //free((&next -> thread.uc_stack));
-    //free(next); 
+    if (next -> tid == 0) {
+      printf("Something works\n");
+      struct node* tmp = next;
+      free((&tmp -> thread -> uc_stack));
+      free(tmp -> thread);
+      free(tmp);
+      next = next -> next;
+    }
+    //printf("1 next: %p, ready: %p\n", next, ready);
+    //printf("next tid: %d, ready tid: %d\n", next->tid, ready->tid);
+    fifo_push(&ready, next);
+    swapcontext(&main, *(&next -> thread));
+    //printf("2 next: %p, ready: %p\n", next, ready);
+    next -> tid = 0; // 0 = Finished so free next time you encounter it.
+    //printf("tid now is: %d\n", next -> tid);
+    //printf("Swapped context\n");
   }
   return -1;
 }
