@@ -2,28 +2,14 @@
 #include <stdlib.h>
 #include "fifoq.h"
 
-int fifo_append(ucontext_t* cthread, struct node **head, int tid) {
-    // Appends a new node containing the thread's context 
-    // and that thread's identifying number.
-    struct node *temp = malloc(sizeof(struct node));
-    if (temp == NULL) {
-        printf("Error: Malloc failed. Write better error message.\n");
+void fifo_print(struct node *ready) {
+    // Original code by Professor Sommers, modified by Bria.
+    printf("***List contents begin***\n");
+    while (ready != NULL) {
+        printf("tid: %d\n", ready -> tid);
+        ready = ready -> next;
     }
-    temp -> thread = cthread;
-    temp -> isMain = 1;
-    temp -> tid = tid; 
-    temp -> next = NULL;
-    if (*head != NULL) {
-        struct node *list = *head;
-        while (list -> next != NULL) {
-            list = list -> next;
-        }
-        list -> next = temp;
-    }
-    else {
-        *head = temp;
-    }
-    return 0;
+    printf("***List contents end***\n");
 }
 
 void fifo_clear(struct node *ready) {
@@ -38,14 +24,11 @@ void fifo_clear(struct node *ready) {
 // Code by Bria - pops the head of the list off and returns 
 // it so that the thread it contains can be run. 
 struct node* fifo_pop(struct node **ready) {
-	if (*ready != NULL) {
-		struct node *temp = *ready;
-		*ready = (*ready) -> next;
-		return temp;
+    struct node* temp = *ready;
+	if (temp != NULL) {
+        *ready = (*ready) -> next;
 	}
-	else {
-		return NULL;
-	}
+    return temp;
 }
 
 void fifo_push(struct node **ready, struct node *thread) {
@@ -56,8 +39,16 @@ void fifo_push(struct node **ready, struct node *thread) {
             temp = temp -> next;
         }
         temp -> next = thread;
+
     }
     else {
         *ready = thread;
+
     }
+}
+
+
+void node_destroy(struct node *thread) {
+    free(thread -> thread.uc_stack.ss_sp);
+    free(thread);
 }

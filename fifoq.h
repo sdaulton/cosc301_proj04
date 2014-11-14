@@ -5,20 +5,21 @@
 
 
 struct node {
-	ucontext_t* thread;
-	int isMain; // main = 0, not main = 1.
+	ucontext_t thread;
 	int tid;
 	struct node* next;
 };
 
 void node_init(struct node* ready);
 
-int fifo_append(ucontext_t* cthread, struct node **head, int tid);
+void fifo_print(struct node *ready);
 
 void fifo_clear(struct node *ready);
 
 struct node* fifo_pop(struct node **ready);
 
 void fifo_push(struct node **ready, struct node *thread);
+
+void node_destroy(struct node *ready);
 
 #endif // __FIFO_H__
