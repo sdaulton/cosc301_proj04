@@ -3,71 +3,54 @@
 #include <ucontext.h>
 #include "fifoq.h"
 
-// All done by Bria.
-
-/*
-int fifo_append(ucontext_t thread, ucontext_t* ready) {
-    // Links the next thread into the ready queue.
-    // Assumes that the new thread is linked to NULL already.
-    if (ready == NULL) {
-        ready = &thread;
+void fifo_print(struct node *ready) {
+    // Original code by Professor Sommers, modified by Bria.
+    printf("***List contents begin***\n");
+    while (ready != NULL) {
+        printf("tid: %d\n", ready -> tid);
+        ready = ready -> next;
     }
-    else {
-        ucontext_t* temp = ready;
-        while (temp != NULL) {
-            temp = temp -> uc_link;
-        }
-        temp.uc_link = &thread;
-    }
-}
-*/
-
-/*
-void fifo_print(struct node **head) {
-    // takes a pointer to a ponter to the head of a linked list of thread nodes
-    // and prints the list of threads based on their thread id #
-    struct node *next_node = *head;
-    printf("***Current threads start***\n");
-    while (next_node != NULL) {
-        printf("Process: %d\n", next_node->tid);
-        next_node = next_node -> next;
-    }
-    printf("***Current threads end***\n");
+    printf("***List contents end***\n");
 }
 
-void fifo_clear(struct node *list) {
+void fifo_clear(struct node *ready) {
 	// Code by Professor Sommers from HW3, modified by Sam
-    while (list != NULL) {
-        struct node *tmp = list;
-        list = list->next;
+    while (ready != NULL) {
+        struct node *tmp = ready;
+        ready = ready->next;
         free(tmp);
     }
 }
 */
 
-// Code by Bria - pops the head of the list off and returns 
-// it so that it can be run. 
-ucontext_t* fifo_pop(ucontext_t **list) {
-	if (*list != NULL) {
-		ucontext_t* temp = *list;
-		*list = (*list) -> uc_link;
-		return temp;
+// Code by Bria - pops the head of the list off and returns
+// it so that the thread it contains can be run. 
+struct node* fifo_pop(struct node **ready) {
+    struct node* temp = *ready;
+	if (temp != NULL) {
+        *ready = (*ready) -> next;
 	}
-	else {
-		return NULL;
-	}
+    return temp;
 }
 
-// Code by Bria - pushes the already existing node to the back of
-// the list (to the end of the queue).
-void fifo_push(ucontext_t *list, ucontext_t *thread) {
-    thread->uc_link = NULL;
-    if (list == NULL) {
-        list = thread;
-        return;
+void fifo_push(struct node **ready, struct node *thread) {
+    thread -> next = NULL;
+    if (*ready != NULL) {
+        struct node *temp = *ready;
+        while (temp -> next != NULL) {
+            temp = temp -> next;
+        }
+        temp -> next = thread;
+
     }
-    while (list -> uc_link != NULL) {
-        list = list -> uc_link;
+    else {
+        *ready = thread;
+
     }
-    list -> uc_link = thread;
+}
+
+
+void node_destroy(struct node *thread) {
+    free(thread -> thread.uc_stack.ss_sp);
+    free(thread);
 }

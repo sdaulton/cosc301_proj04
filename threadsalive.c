@@ -1,85 +1,73 @@
 /*
  * 
  */
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <assert.h>
+#include <ucontext.h>
 #include <strings.h>
 #include <ucontext.h>
 #include <string.h>
 #include "threadsalive.h"
 #include "fifoq.c"
 
-#define STACKSIZE 8192
+#define STACKSIZE 128000
 
-static ucontext_t* ready; // Because the ucontext structure has the link that basically
-                          // acts like a queue on its own, Stratton suggested using it
-                          // as the linked list instead of implementing our own.
-
+static struct node* ready = NULL;
+static ucontext_t main;
+static int tid = 1;
 
 /* ***************************** 
      stage 1 library functions
    ***************************** */
 
 void ta_libinit(void) {
-    printf("In init 1\n");
-    ucontext_t* readyContext = malloc(sizeof(ucontext_t));
-    ready = readyContext;
-    printf("After malloc plz plz\n");
-    if (getcontext(ready) == -1) {
-        fprintf(stderr, "getcontext(ready failed).  Error: %s\n", strerror(errno));
-        exit(1);
-    }
-    ready -> uc_link = NULL;
-    return;
+  return;
 }
 
 void ta_create(void (*func)(void *), void *arg) {
-  // Create node, make context, set context, add to queue.
-
-    //ucontext_t thread;
-    //I ADDED THIS LINE
-    ucontext_t *thread = malloc(sizeof(ucontext_t));
+  // Create node, make context, set context.
+  // Add node to ready q, link it back to main.
+    struct node *temp = malloc(sizeof(struct node));
+    temp->tid = tid;
+    tid++;
     unsigned char *stack = (unsigned char *)malloc(STACKSIZE);
+    assert(stack);
 
     /* Set up thread*/
-    getcontext(thread);
-    (thread->uc_stack).ss_sp = stack;
-    (thread->uc_stack).ss_size = STACKSIZE;
-    thread->uc_link = NULL;
-
-    // Makes the context - switch into it using switch_context()
-    makecontext(thread, func, 1, arg);
-    fifo_push(ready, thread);
+    getcontext(&temp->thread);
+    temp->thread.uc_stack.ss_sp = stack;
+    temp->thread.uc_stack.ss_size = STACKSIZE;
+    temp->thread.uc_link = &main;
+    makecontext(&temp->thread, (void (*)(void))func, 1, arg);
+    fifo_push(&ready, temp);
     return;
 }
 
-void ta_yield(void) { 
-  ucontext_t *current = NULL;
-  current = fifo_pop(&ready);
-
-  swapcontext(ready, current);
-
-  if (current != ready){
-    // The only way for us to get here is if the thread returned as opposed to
-    // calling an explicit yield.
-    ucontext_t *temp = NULL;
-    temp = fifo_pop(&ready);
-    free(&(temp -> uc_stack));
-  }
+void ta_yield(void) {
+  // Switches to the next thread on the ready queue, pushing the current
+  // thread to the back.
+  assert(ready); // If ready is null then something is wrong, exit.
+  struct node* current = fifo_pop(&ready);
+  fifo_push(&ready, current);
+  swapcontext(&current -> thread, &ready -> thread);
   return;
 }
 
 int ta_waitall(void) {
   // Idea: Run all threads via yield until the queue is empty.
   // Only called from calling program - wait for all threads to finish.
-    while (ready != NULL) {
-      ta_yield();
-      ready = ready -> uc_link;
-    }
+  while (ready != NULL) {
+    swapcontext(&main, &ready -> thread);
+    struct node* del = fifo_pop(&ready);
+    node_destroy(del);
+  }
+  printf("End of wait all\n");
+  if (ready == NULL) { // FIXME
     return 0;
+  }
+  return -1;
 }
 
 
