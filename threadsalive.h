@@ -9,12 +9,17 @@
         type definitions
    *************************** */
 
-typedef struct {
 
+typedef struct {
+    int value;
+    struct node *waiting_q;
+    int guard;
 } tasem_t;
 
 typedef struct {
-
+    int flag;
+    tasem_t sem;
+    struct node *waiting_q;
 } talock_t;
 
 typedef struct {

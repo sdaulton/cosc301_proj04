@@ -16,7 +16,7 @@ libthreadsalive.a: threadsalive.o
 ctxtest: ctxtest.o
 	$(CC) -o $@ $(patsubst %.c,%.o,$<) 
 
-$(TESTPROG): %: %.o
+$(TESTPROG): %: %.o libthreadsalive.a
 	$(CC) -o $@ $(patsubst %.c,%.o,$<) libthreadsalive.a
 
 
