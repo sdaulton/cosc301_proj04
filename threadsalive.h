@@ -23,7 +23,7 @@ typedef struct {
 } talock_t;
 
 typedef struct {
-
+    tasem_t sem;
 } tacond_t;
 
 

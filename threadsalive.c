@@ -166,8 +166,8 @@ void ta_sem_wait(tasem_t *sem) {
         // add current thread to wait list for semaphore
         struct node *current = fifo_pop(&ready);
         fifo_push(&sem->waiting_q, current);
-        // give up CPU
         sem->guard = 0;
+        // give up CPU
         swapcontext(&current -> thread, &ready -> thread);
     } else {
         sem->guard = 0; 
@@ -193,10 +193,7 @@ void ta_lock_destroy(talock_t *mutex) {
 // and releases the semaphore.  If the lock is taken, the thread adds itself to a waiting queue for the lock and releases
 // the semaphore
 void ta_lock(talock_t *mutex) {
-    while(mutex->flag == 1) {
-        //wait to acquire guard
-        ta_sem_wait(&mutex->sem);
-    }
+    ta_sem_wait(&mutex->sem);
     if (mutex->flag == 0) {
         // lock is free
         mutex->flag = 1;
@@ -232,15 +229,22 @@ void ta_unlock(talock_t *mutex) {
      stage 3 library functions
    ***************************** */
 
+//initialize a semaphore with value = 0 so that all threads will wait.
 void ta_cond_init(tacond_t *cond) {
+    ta_sem_init(&cond->sem, 0);
 }
 
+// do nothing
 void ta_cond_destroy(tacond_t *cond) {
 }
 
 void ta_wait(talock_t *mutex, tacond_t *cond) {
+    ta_unlock(mutex);
+    ta_sem_wait(&cond->sem);
+    ta_lock(mutex);
 }
 
 void ta_signal(tacond_t *cond) {
+    ta_sem_post(&cond->sem);
 }
 

@@ -33,6 +33,9 @@ struct node* fifo_pop(struct node **ready) {
 }
 
 void fifo_push(struct node **ready, struct node *thread) {
+    if (thread == NULL) {
+        return;
+    }
     thread -> next = NULL;
     if (*ready != NULL) {
         struct node *temp = *ready;
@@ -44,7 +47,6 @@ void fifo_push(struct node **ready, struct node *thread) {
     }
     else {
         *ready = thread;
-
     }
 }
 
