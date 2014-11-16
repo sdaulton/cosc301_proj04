@@ -90,6 +90,7 @@ void ta_create(void (*func)(void *), void *arg) {
   // Create node, make context, set context.
   // Add node to ready q, link it back to main.
     struct node *temp = malloc(sizeof(struct node));
+    assert(temp);
     temp->tid = tid;
     tid++;
     unsigned char *stack = (unsigned char *)malloc(STACKSIZE);
@@ -108,7 +109,7 @@ void ta_create(void (*func)(void *), void *arg) {
 void ta_yield(void) {
   // Switches to the next thread on the ready queue, pushing the current
   // thread to the back.
-  assert(ready); // If ready is null then something is wrong, exit.
+  assert(ready);
   struct node* current = fifo_pop(&ready);
   fifo_push(&ready, current);
   swapcontext(&current -> thread, &ready -> thread);
@@ -144,6 +145,7 @@ void ta_sem_init(tasem_t *sem, int value) {
     sem->waiting_q = NULL;
     sem->guard = 0;
     struct semnode *newsema = malloc(sizeof(struct semnode));
+    assert(newsema);
     newsema->sem = sem;
     semnode_push(&semlist, newsema);
 }
@@ -190,6 +192,7 @@ void ta_lock_init(talock_t *mutex) {
     mutex->flag = 0;
     mutex->waiting_q = NULL;
     struct locknode *newlock = malloc(sizeof(struct locknode));
+    assert(newlock);
     newlock->lock = mutex;
     locknode_push(&locklist, newlock);
 }
