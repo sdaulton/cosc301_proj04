@@ -23,7 +23,7 @@ void fifo_clear(struct node *ready) {
 }
 
 // Code by Bria - pops the head of the list off and returns
-// it so that the thread it contains can be run. 
+// it.
 struct node* fifo_pop(struct node **ready) {
     struct node* temp = *ready;
     if (temp != NULL) {
@@ -32,6 +32,8 @@ struct node* fifo_pop(struct node **ready) {
     return temp;
 }
 
+// Code by Bria - pushes an already existing node to the
+// back of the list.
 void fifo_push(struct node **ready, struct node *thread) {
     if (thread == NULL) {
         return;
@@ -50,7 +52,7 @@ void fifo_push(struct node **ready, struct node *thread) {
     }
 }
 
-
+// Code by Bria - frees a thread node.
 void node_destroy(struct node *thread) {
     free(thread -> thread.uc_stack.ss_sp);
     free(thread);
@@ -106,6 +108,3 @@ void semnode_push(struct semnode **semlist, struct semnode *sem) {
 
     }
 }
-
-
-

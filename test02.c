@@ -6,7 +6,7 @@
 #include <signal.h>
 #include "threadsalive.h"
 
-#define DATALEN 100
+#define DATALEN 2
 #define DURATION 3
 
 tasem_t readersem;
@@ -80,7 +80,7 @@ int main(int argc, char **argv)
 
     ta_libinit();
     int i = 0;
-    int nrw = 5;
+    int nrw = 2;
 
     data = (int *)malloc(sizeof(int) * DATALEN);
     assert(data);

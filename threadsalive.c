@@ -14,6 +14,13 @@
 
 #define STACKSIZE 128000
 
+/* CHECKLIST: 
+- Valgrind checks out, no mem leaks.
+- Sys calls?
+- Asserts?
+
+*/
+
 static struct node* ready = NULL;
 static ucontext_t main;
 static int tid = 1;
@@ -22,6 +29,7 @@ static struct semnode *semlist = NULL;
 
 /* ***************************** 
      static helper functions
+     Written by Sam.
    ***************************** */
 
 // destroy threads that are waiting on a semaphore (including the semaphore guards on mutexs) and free the semnode
@@ -34,7 +42,7 @@ static int ta_sem_thread_clearer(void) {
         while(sem->waiting_q != NULL) {
             struct node *del = fifo_pop(&(sem->waiting_q));
             node_destroy(del);
-            printf("deleted blocked thread from semaphore\n");
+            //printf("deleted blocked thread from semaphore\n");
             numkilled++;
         }
         free(del_sem);
@@ -51,7 +59,7 @@ static int ta_lock_thread_clearer(void) {
         while(mutex->waiting_q != NULL) {
             struct node *del = fifo_pop(&(mutex->waiting_q));
             node_destroy(del);
-            printf("deleted blocked thread from mutex\n");
+            //printf("deleted blocked thread from mutex\n");
             numkilled++;
         }
         free(del_lock);
@@ -69,6 +77,9 @@ static int testAndSet(int *ptr, int new) {
 
 /* ***************************** 
      stage 1 library functions
+     Code by Bria, modifications
+     that implement later stage 
+     functionality by Sam.
    ***************************** */
 
 void ta_libinit(void) {
@@ -78,7 +89,6 @@ void ta_libinit(void) {
 void ta_create(void (*func)(void *), void *arg) {
   // Create node, make context, set context.
   // Add node to ready q, link it back to main.
-    printf("created thread\n");
     struct node *temp = malloc(sizeof(struct node));
     temp->tid = tid;
     tid++;
@@ -106,7 +116,6 @@ void ta_yield(void) {
 }
 
 int ta_waitall(void) {
-  // Idea: Run all threads via yield until the queue is empty.
   // Only called from calling program - wait for all threads to finish.
   int numblockedkilled = 0;
   while (ready != NULL) {
@@ -118,13 +127,13 @@ int ta_waitall(void) {
   numblockedkilled += numkilled;
   numkilled = ta_lock_thread_clearer();
   numblockedkilled += numkilled;
-  printf("End of wait all\n");
   return -1 * numblockedkilled;
 }
 
 
 /* ***************************** 
      stage 2 library functions
+     Code by Sam.
    ***************************** */
 
 
@@ -227,6 +236,7 @@ void ta_unlock(talock_t *mutex) {
 
 /* ***************************** 
      stage 3 library functions
+     Code by Sam.
    ***************************** */
 
 //initialize a semaphore with value = 0 so that all threads will wait.
@@ -247,4 +257,3 @@ void ta_wait(talock_t *mutex, tacond_t *cond) {
 void ta_signal(tacond_t *cond) {
     ta_sem_post(&cond->sem);
 }
-
