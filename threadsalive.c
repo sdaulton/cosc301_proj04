@@ -23,6 +23,9 @@
 static struct node* ready = NULL;
 static ucontext_t main;
 static int tid = 1;
+static int lockid = 1;
+static int semid = 1;
+static int killed_threads = 0;
 static struct locknode *locklist = NULL;
 static struct semnode *semlist = NULL;
 
@@ -38,6 +41,7 @@ static int ta_sem_thread_clearer(void) {
     while (semlist != NULL) {
         struct semnode *del_sem = semnode_pop(&semlist);
         tasem_t *sem = del_sem->sem;
+        sem->isLive = -1;
         while(sem->waiting_q != NULL) {
             struct node *del = fifo_pop(&(sem->waiting_q));
             node_destroy(del);
@@ -54,6 +58,7 @@ static int ta_lock_thread_clearer(void) {
     while (locklist != NULL) {
         struct locknode *del_lock = locknode_pop(&locklist);
         talock_t *mutex = del_lock->lock;
+        mutex->isLive = -1;
         while(mutex->waiting_q != NULL) {
             struct node *del = fifo_pop(&(mutex->waiting_q));
             node_destroy(del);
@@ -72,18 +77,6 @@ static int testAndSet(int *ptr, int new) {
     return old;
 }
 
-// used only for posting to the semaphore in a condition variable
-// this ignores the maximum value for the semaphore, so you can just keep posting
-static void ta_cond_sem_post(tasem_t *sem) {
-    while(testAndSet(&sem->guard, 1) == 1) {};
-    sem->value++;
-    if (sem->value <= 0) {
-        //there are threads waiting
-        struct node *woken_thread = fifo_pop(&sem->waiting_q);
-        fifo_push(&ready, woken_thread);
-    }
-    sem->guard = 0;
-}
 
 /* ***************************** 
      stage 1 library functions
@@ -134,7 +127,6 @@ void ta_yield(void) {
 
 int ta_waitall(void) {
   // Only called from calling program - wait for all threads to finish.
-  int numblockedkilled = 0;
   while (ready != NULL) {
     int check = swapcontext(&main, &ready -> thread);
     if (check == -1) {
@@ -144,11 +136,13 @@ int ta_waitall(void) {
     struct node* del = fifo_pop(&ready);
     node_destroy(del);
   }
+  
   int numkilled = ta_sem_thread_clearer();
-  numblockedkilled += numkilled;
+  killed_threads += numkilled;
   numkilled = ta_lock_thread_clearer();
-  numblockedkilled += numkilled;
-  return -1 * numblockedkilled;
+  killed_threads += numkilled;
+  
+  return -1 * killed_threads;
 }
 
 
@@ -165,14 +159,31 @@ void ta_sem_init(tasem_t *sem, int value) {
     sem->waiting_q = NULL;
     sem->guard = 0;
     sem->max = value;
+    sem->semid = semid;
+    semid++;
+    sem->isLive = 0; // if not zero, the semaphore is dead
     struct semnode *newsema = malloc(sizeof(struct semnode));
     assert(newsema);
     newsema->sem = sem;
     semnode_push(&semlist, newsema);
 }
 
-// does nothing 
+//removes all allocated memory for the semaphore.  In particular it removes the semnode from the linked list of semnodes, clears the waiting queue, and frees
+// all memory
 void ta_sem_destroy(tasem_t *sem) {
+    if (sem == NULL) {
+        return;
+    } else if (sem->isLive != 0) {
+        return;
+    }
+    struct semnode *del_node = semnode_remove(&semlist, sem->semid);
+    while(sem->waiting_q != NULL) {
+        struct node *del = fifo_pop(&(sem->waiting_q));
+        node_destroy(del);
+        killed_threads++;
+    }
+    free(del_node);
+    sem->isLive = -1;
 }
 
 // after getting past guard (mutex) for semaphore, increments the value and wakes up a thread if there are 
@@ -181,6 +192,7 @@ void ta_sem_post(tasem_t *sem) {
     while(testAndSet(&sem->guard, 1) == 1) {};
     if(sem->value >= sem->max) {
         // dont allow posts when sem->value == max
+        sem->guard = 0;
         return;
     }
     sem->value++;
@@ -220,14 +232,40 @@ void ta_lock_init(talock_t *mutex) {
     ta_sem_init(&mutex->sem, 1);
     mutex->flag = 0;
     mutex->waiting_q = NULL;
+    mutex->lockid = lockid;
+    mutex->isLive = 0;
+    lockid++;
     struct locknode *newlock = malloc(sizeof(struct locknode));
     assert(newlock);
     newlock->lock = mutex;
     locknode_push(&locklist, newlock);
 }
 
-//does nothing
+//removes all allocated memory for the lock.  In particular it removes the locknode from the linked list of locknodes, clears the waiting queue, and frees
+// all memory
 void ta_lock_destroy(talock_t *mutex) {
+    if (mutex == NULL) {
+        return;
+    } else if (mutex->isLive != 0) {
+        return;
+    }
+    struct locknode *del_node = locknode_remove(&locklist, mutex->lockid);
+    //struct semnode *del_sem_node = semnode_remove(&semlist, (mutex->sem).semid);
+    while(mutex->waiting_q != NULL) {
+        struct node *del = fifo_pop(&(mutex->waiting_q));
+        node_destroy(del);
+        killed_threads++;
+    }
+    mutex->isLive = -1;
+    ta_sem_destroy(&mutex->sem);
+    //while((del_sem_node->sem)->waiting_q != NULL) {
+      //  struct node *del = fifo_pop(&((del_sem_node->sem)->waiting_q));
+       // node_destroy(del);
+        //killed_threads++;
+    //}
+    //free(del_sem_node);
+    free(del_node);
+    
 }
 
 // uses a semaphore as a guard on the lock.  Once thread has the semaphore, if the lock is free: the thread takes the lock
@@ -278,8 +316,8 @@ void ta_cond_init(tacond_t *cond) {
     ta_sem_init(&cond->sem, 0);
 }
 
-// do nothing
 void ta_cond_destroy(tacond_t *cond) {
+    ta_sem_destroy(&cond->sem);
 }
 
 void ta_wait(talock_t *mutex, tacond_t *cond) {
@@ -289,7 +327,7 @@ void ta_wait(talock_t *mutex, tacond_t *cond) {
 }
 
 void ta_signal(tacond_t *cond) {
-    ta_cond_sem_post(&cond->sem);
+    ta_sem_post(&cond->sem);
 }
 
 

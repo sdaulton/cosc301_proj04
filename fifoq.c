@@ -61,6 +61,7 @@ void node_destroy(struct node *thread) {
 
 // Taken from Bria and adapted by Sam - pops the head of the list off and returns
 // it so that the threads can be removed from locks' and semaphores' waiting lists it contains can be run. 
+// the remove methods remove the node with the matching id from the list parameter and returns a pointer to that node
 struct locknode* locknode_pop(struct locknode **locklist) {
     struct locknode* temp = *locklist;
     if (temp != NULL) {
@@ -85,24 +86,25 @@ void locknode_push(struct locknode **locklist, struct locknode *lock) {
     }
 }
 
-void locknode_remove(struct locknode **locklist, int lockid) {
+struct locknode* locknode_remove(struct locknode **locklist, int lockid) {
     if (*locklist != NULL) {
         struct locknode *last = *locklist;
         struct locknode *next = last->next;
         if ((last->lock)->lockid == lockid) {
             *locklist = next;
-            return;
+            return last;
         }
         while (next != NULL) {
             
             if((next->lock)->lockid == lockid) {
                 last->next = next->next;
-                return;
+                return next;
             }
             last = next;
             next = next->next;
         }
     }
+    return NULL;
 }
 
 struct semnode* semnode_pop(struct semnode **semlist) {
@@ -127,4 +129,25 @@ void semnode_push(struct semnode **semlist, struct semnode *sem) {
         *semlist = sem;
 
     }
+}
+
+struct semnode* semnode_remove(struct semnode **semlist, int semid) {
+    if (*semlist != NULL) {
+        struct semnode *last = *semlist;
+        struct semnode *next = last->next;
+        if ((last->sem)->semid == semid) {
+            *semlist = next;
+            return last;
+        }
+        while (next != NULL) {
+            
+            if((next->sem)->semid == semid) {
+                last->next = next->next;
+                return next;
+            }
+            last = next;
+            next = next->next;
+        }
+    }
+    return NULL;
 }

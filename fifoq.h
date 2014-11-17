@@ -40,6 +40,9 @@ void semnode_push(struct semnode **semlist, struct semnode *sem);
 
 struct semnode* semnode_pop(struct semnode **semlist);
 
+struct locknode* locknode_remove(struct locknode **locklist, int lockid);
+struct semnode* semnode_remove(struct semnode **semlist, int semid);
+
 
 
 #endif // __FIFO_H__
