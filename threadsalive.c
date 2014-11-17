@@ -14,12 +14,6 @@
 
 #define STACKSIZE 128000
 
-/* CHECKLIST: 
-- Valgrind checks out, no mem leaks.
-- Sys calls?
-- Asserts?
-*/
-
 static struct node* ready = NULL;
 static ucontext_t main;
 static int tid = 1;
@@ -90,8 +84,8 @@ void ta_libinit(void) {
 }
 
 void ta_create(void (*func)(void *), void *arg) {
-  // Create node, make context, set context.
-  // Add node to ready q, link it back to main.
+    // Create a node, set up context for it, and add
+    // to the ready queue. 
     struct node *temp = malloc(sizeof(struct node));
     assert(temp);
     temp->tid = tid;
@@ -104,10 +98,11 @@ void ta_create(void (*func)(void *), void *arg) {
     if (check == -1) {
       fprintf(stderr, "Get context failed!\nReason: %s\n", strerror(errno));
     }
+
     temp->thread.uc_stack.ss_sp = stack;
     temp->thread.uc_stack.ss_size = STACKSIZE;
     temp->thread.uc_link = &main;
-    makecontext(&temp->thread, (void (*)(void))func, 1, arg); // Failure of make context?
+    makecontext(&temp->thread, (void (*)(void))func, 1, arg);
     fifo_push(&ready, temp);
     return;
 }
@@ -250,7 +245,6 @@ void ta_lock_destroy(talock_t *mutex) {
         return;
     }
     struct locknode *del_node = locknode_remove(&locklist, mutex->lockid);
-    //struct semnode *del_sem_node = semnode_remove(&semlist, (mutex->sem).semid);
     while(mutex->waiting_q != NULL) {
         struct node *del = fifo_pop(&(mutex->waiting_q));
         node_destroy(del);
@@ -258,12 +252,6 @@ void ta_lock_destroy(talock_t *mutex) {
     }
     mutex->isLive = -1;
     ta_sem_destroy(&mutex->sem);
-    //while((del_sem_node->sem)->waiting_q != NULL) {
-      //  struct node *del = fifo_pop(&((del_sem_node->sem)->waiting_q));
-       // node_destroy(del);
-        //killed_threads++;
-    //}
-    //free(del_sem_node);
     free(del_node);
     
 }
@@ -280,7 +268,6 @@ void ta_lock(talock_t *mutex) {
     } else {
         struct node *current = fifo_pop(&ready);
         fifo_push(&mutex->waiting_q, current);
-        //numblockedthreads++;
         ta_sem_post(&mutex->sem);
         int check = swapcontext(&current -> thread, &ready -> thread);
         if (check == -1) {
