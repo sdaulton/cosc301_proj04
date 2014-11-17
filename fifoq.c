@@ -85,6 +85,26 @@ void locknode_push(struct locknode **locklist, struct locknode *lock) {
     }
 }
 
+void locknode_remove(struct locknode **locklist, int lockid) {
+    if (*locklist != NULL) {
+        struct locknode *last = *locklist;
+        struct locknode *next = last->next;
+        if ((last->lock)->lockid == lockid) {
+            *locklist = next;
+            return;
+        }
+        while (next != NULL) {
+            
+            if((next->lock)->lockid == lockid) {
+                last->next = next->next;
+                return;
+            }
+            last = next;
+            next = next->next;
+        }
+    }
+}
+
 struct semnode* semnode_pop(struct semnode **semlist) {
     struct semnode* temp = *semlist;
     if (temp != NULL) {

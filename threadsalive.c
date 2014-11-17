@@ -72,6 +72,19 @@ static int testAndSet(int *ptr, int new) {
     return old;
 }
 
+// used only for posting to the semaphore in a condition variable
+// this ignores the maximum value for the semaphore, so you can just keep posting
+static void ta_cond_sem_post(tasem_t *sem) {
+    while(testAndSet(&sem->guard, 1) == 1) {};
+    sem->value++;
+    if (sem->value <= 0) {
+        //there are threads waiting
+        struct node *woken_thread = fifo_pop(&sem->waiting_q);
+        fifo_push(&ready, woken_thread);
+    }
+    sem->guard = 0;
+}
+
 /* ***************************** 
      stage 1 library functions
      Code by Bria, modifications
@@ -151,6 +164,7 @@ void ta_sem_init(tasem_t *sem, int value) {
     sem->value = value;
     sem->waiting_q = NULL;
     sem->guard = 0;
+    sem->max = value;
     struct semnode *newsema = malloc(sizeof(struct semnode));
     assert(newsema);
     newsema->sem = sem;
@@ -165,6 +179,10 @@ void ta_sem_destroy(tasem_t *sem) {
 // any threads waiting for the semaphore
 void ta_sem_post(tasem_t *sem) {
     while(testAndSet(&sem->guard, 1) == 1) {};
+    if(sem->value >= sem->max) {
+        // dont allow posts when sem->value == max
+        return;
+    }
     sem->value++;
     if (sem->value <= 0) {
         //there are threads waiting
@@ -271,5 +289,8 @@ void ta_wait(talock_t *mutex, tacond_t *cond) {
 }
 
 void ta_signal(tacond_t *cond) {
-    ta_sem_post(&cond->sem);
+    ta_cond_sem_post(&cond->sem);
 }
+
+
+

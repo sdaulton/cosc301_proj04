@@ -14,6 +14,7 @@ typedef struct {
     int value;
     struct node *waiting_q;
     int guard;
+    int max;
 } tasem_t;
 
 typedef struct {
