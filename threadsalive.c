@@ -7,7 +7,7 @@
 #include <assert.h>
 #include <ucontext.h>
 #include <strings.h>
-#include <ucontext.h>
+#include <errno.h>
 #include <string.h>
 #include "threadsalive.h"
 #include "fifoq.c"
@@ -18,7 +18,6 @@
 - Valgrind checks out, no mem leaks.
 - Sys calls?
 - Asserts?
-
 */
 
 static struct node* ready = NULL;
@@ -42,7 +41,6 @@ static int ta_sem_thread_clearer(void) {
         while(sem->waiting_q != NULL) {
             struct node *del = fifo_pop(&(sem->waiting_q));
             node_destroy(del);
-            //printf("deleted blocked thread from semaphore\n");
             numkilled++;
         }
         free(del_sem);
@@ -59,7 +57,6 @@ static int ta_lock_thread_clearer(void) {
         while(mutex->waiting_q != NULL) {
             struct node *del = fifo_pop(&(mutex->waiting_q));
             node_destroy(del);
-            //printf("deleted blocked thread from mutex\n");
             numkilled++;
         }
         free(del_lock);
@@ -97,11 +94,14 @@ void ta_create(void (*func)(void *), void *arg) {
     assert(stack);
 
     /* Set up thread*/
-    getcontext(&temp->thread);
+    int check = getcontext(&temp->thread);
+    if (check == -1) {
+      fprintf(stderr, "Get context failed!\nReason: %s\n", strerror(errno));
+    }
     temp->thread.uc_stack.ss_sp = stack;
     temp->thread.uc_stack.ss_size = STACKSIZE;
     temp->thread.uc_link = &main;
-    makecontext(&temp->thread, (void (*)(void))func, 1, arg);
+    makecontext(&temp->thread, (void (*)(void))func, 1, arg); // Failure of make context?
     fifo_push(&ready, temp);
     return;
 }
@@ -112,7 +112,10 @@ void ta_yield(void) {
   assert(ready);
   struct node* current = fifo_pop(&ready);
   fifo_push(&ready, current);
-  swapcontext(&current -> thread, &ready -> thread);
+  int check = swapcontext(&current -> thread, &ready -> thread);
+  if (check == -1) {
+    fprintf(stderr, "Swap context failed!\nReason: %s\n", strerror(errno));
+  }
   return;
 }
 
@@ -120,7 +123,11 @@ int ta_waitall(void) {
   // Only called from calling program - wait for all threads to finish.
   int numblockedkilled = 0;
   while (ready != NULL) {
-    swapcontext(&main, &ready -> thread);
+    int check = swapcontext(&main, &ready -> thread);
+    if (check == -1) {
+      fprintf(stderr, "Swap context failed!\nReason: %s\n", strerror(errno));
+    }
+    // Process at head of list just finished, clear it.
     struct node* del = fifo_pop(&ready);
     node_destroy(del);
   }
@@ -179,7 +186,11 @@ void ta_sem_wait(tasem_t *sem) {
         fifo_push(&sem->waiting_q, current);
         sem->guard = 0;
         // give up CPU
-        swapcontext(&current -> thread, &ready -> thread);
+        int check = swapcontext(&current -> thread, &ready -> thread);
+        if (check == -1) {
+          fprintf(stderr, "Swap context failed!\nReason: %s\n", strerror(errno));
+        }
+
     } else {
         sem->guard = 0; 
     }
@@ -215,13 +226,15 @@ void ta_lock(talock_t *mutex) {
         fifo_push(&mutex->waiting_q, current);
         //numblockedthreads++;
         ta_sem_post(&mutex->sem);
-        swapcontext(&current -> thread, &ready -> thread);
+        int check = swapcontext(&current -> thread, &ready -> thread);
+        if (check == -1) {
+          fprintf(stderr, "Swap context failed!\nReason: %s\n", strerror(errno));
+        }
     }
 }
 
 //uses a semaphore as a guard on the lock.  Once the thread has the semaphore, if there are threads waiting for the lock:
 // it wakes the next thread.  If there are no threads waiting, it releases the lock.  Then it releases the semaphore
-
 void ta_unlock(talock_t *mutex) {
     ta_sem_wait(&mutex->sem);
     if (mutex->waiting_q == NULL) {
